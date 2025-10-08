@@ -123,7 +123,7 @@ bfc_read_object(struct bfcfs_mount *bmp, struct bfcfs_index_entry *entry,
 
 	/* Calculate content offset like Linux and BFC library do */
 	hdr_name_size = sizeof(struct bfc_obj_header) + le16toh(obj_hdr.name_len);
-	padding = ((hdr_name_size + 15) & ~15ULL) - hdr_name_size;  /* BFC_ALIGN=16 */
+	padding = ((hdr_name_size + (BFC_ALIGN - 1)) & ~(BFC_ALIGN - 1)) - hdr_name_size;
 	content_offset = entry->obj_offset + hdr_name_size + padding;
 
 	BFCFS_DEBUG("read_object: %s obj_off=%lu hdr=%zu name_len=%u hdr_name=%zu pad=%zu content_off=%ld",

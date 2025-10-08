@@ -198,7 +198,7 @@ bfcfs_getattr(struct vop_getattr_args *ap)
 
 	/* Handle synthetic root (NULL entry) */
 	if (entry == NULL) {
-		vap->va_mode = S_IFDIR | 0755;
+		vap->va_mode = S_IFDIR | BFC_ROOT_MODE;
 		vap->va_fileid = 1;
 		vap->va_size = 0;
 		vap->va_bytes = 0;
@@ -262,7 +262,7 @@ bfcfs_access(struct vop_access_args *ap)
 		return (EROFS);
 
 	/* Get mode: synthetic root or from entry */
-	mode = (node->entry == NULL) ? 0755 : (node->entry->mode & ALLPERMS);
+	mode = (node->entry == NULL) ? BFC_ROOT_MODE : (node->entry->mode & ALLPERMS);
 
 	/* Simple permission check based on mode bits */
 	return (vaccess(vp->v_type, mode, 0, 0, accmode, ap->a_cred));
@@ -479,16 +479,16 @@ bfcfs_pathconf(struct vop_pathconf_args *ap)
 		*ap->a_retval = 1;
 		break;
 	case 4:	/* _PC_NAME_MAX */
-		*ap->a_retval = 255;	/* NAME_MAX */
+		*ap->a_retval = BFC_NAME_MAX;
 		break;
 	case 5:	/* _PC_PATH_MAX */
-		*ap->a_retval = 1024;	/* PATH_MAX */
+		*ap->a_retval = BFC_PATH_MAX;
 		break;
 	case 7:	/* _PC_NO_TRUNC */
 		*ap->a_retval = 1;
 		break;
 	case 18:	/* _PC_FILESIZEBITS */
-		*ap->a_retval = 64;
+		*ap->a_retval = BFC_FILESIZEBITS;
 		break;
 	default:
 		error = EINVAL;

@@ -155,7 +155,7 @@ bfc_parse_index_entry(const uint8_t *buf, size_t buflen, size_t *offset,
 	remaining -= 4;
 
 	/* Sanity check path length */
-	if (path_len == 0 || path_len > 4096 || path_len > remaining)
+	if (path_len == 0 || path_len > BFC_MAX_PATH_LEN || path_len > remaining)
 		return (EINVAL);
 
 	/* Allocate and copy path */
@@ -165,8 +165,8 @@ bfc_parse_index_entry(const uint8_t *buf, size_t buflen, size_t *offset,
 	p += path_len;
 	remaining -= path_len;
 
-	/* Need at least 48 more bytes for metadata */
-	if (remaining < 48)
+	/* Need at least metadata bytes for entry fields */
+	if (remaining < BFC_INDEX_ENTRY_METADATA_SIZE)
 		return (EINVAL);
 
 	/* Parse metadata fields (all little-endian) */

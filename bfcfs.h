@@ -35,12 +35,23 @@
 #define BFC_MAX_BLOCK_SIZE	(1024 * 1024)	/* 1MB max block size */
 #define BFC_MAX_INDEX_SIZE	(100 * 1024 * 1024)	/* 100MB max index */
 #define BFC_MAX_ENTRIES		1000000		/* 1M max entries */
+#define BFC_MAX_PATH_LEN	4096		/* Maximum path length */
+
+/* BFC index entry format constants */
+#define BFC_INDEX_ENTRY_METADATA_SIZE	48	/* Size of fixed metadata fields */
 
 /* Time conversion constants */
 #define NSEC_PER_SEC		1000000000ULL	/* Nanoseconds per second */
 
 /* Size alignment */
 #define BFC_BLOCK_ROUND		512		/* Round size to 512-byte blocks */
+
+/* VFS constants */
+#define BFC_DEFAULT_IO_SIZE	65536		/* 64KB optimal I/O size */
+#define BFC_ROOT_MODE		0755		/* Synthetic root directory mode */
+#define BFC_NAME_MAX		255		/* Maximum filename length */
+#define BFC_PATH_MAX		1024		/* Maximum path length for pathconf */
+#define BFC_FILESIZEBITS	64		/* File size bits (64-bit offsets) */
 
 /* BFC object types */
 #define BFC_TYPE_FILE		1

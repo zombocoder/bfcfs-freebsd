@@ -294,7 +294,7 @@ bfcfs_statfs(struct mount *mp, struct statfs *sbp)
 	struct bfcfs_mount *bmp = VFSTOBFCFS(mp);
 
 	sbp->f_bsize = bmp->header.block_size;
-	sbp->f_iosize = 65536;  /* Optimal I/O size */
+	sbp->f_iosize = BFC_DEFAULT_IO_SIZE;
 	sbp->f_blocks = 0;      /* Unknown (container is append-only) */
 	sbp->f_bfree = 0;       /* Read-only */
 	sbp->f_bavail = 0;      /* Read-only */
