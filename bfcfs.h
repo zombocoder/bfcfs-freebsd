@@ -31,13 +31,19 @@
 #define BFC_FOOTER_SIZE		56
 #define BFC_ALIGN		16
 
+/* Magic strings */
+#define BFC_MAGIC_STR		"BFCFv1"
+#define BFC_INDEX_MAGIC		"BFCFIDX"
+#define BFC_INDEX_END		"BFCFEND"
+
 /* Sanity limits for container validation */
 #define BFC_MAX_BLOCK_SIZE	(1024 * 1024)	/* 1MB max block size */
 #define BFC_MAX_INDEX_SIZE	(100 * 1024 * 1024)	/* 100MB max index */
 #define BFC_MAX_ENTRIES		1000000		/* 1M max entries */
 #define BFC_MAX_PATH_LEN	4096		/* Maximum path length */
 
-/* BFC index entry format constants */
+/* BFC index format constants */
+#define BFC_INDEX_HEADER_SIZE		8	/* Version (4) + count (4) */
 #define BFC_INDEX_ENTRY_METADATA_SIZE	48	/* Size of fixed metadata fields */
 
 /* Time conversion constants */
@@ -49,6 +55,19 @@
 /* Alignment macros */
 #define BFC_ALIGN_TO_BLOCK(size)	(((size) + (BFC_BLOCK_ROUND - 1)) & ~(BFC_BLOCK_ROUND - 1))
 #define BFC_ALIGN_UP(size, align)	(((size) + ((align) - 1)) & ~((align) - 1))
+
+/* Helper macros for reading little-endian fields */
+#define READ_LE32(ptr, field) do { \
+	bcopy(ptr, &(field), 4); \
+	(field) = LE32(field); \
+	(ptr) += 4; \
+} while (0)
+
+#define READ_LE64(ptr, field) do { \
+	bcopy(ptr, &(field), 8); \
+	(field) = LE64(field); \
+	(ptr) += 8; \
+} while (0)
 
 /* VFS constants */
 #define BFC_DEFAULT_IO_SIZE	65536		/* 64KB optimal I/O size */

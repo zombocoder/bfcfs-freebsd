@@ -38,9 +38,9 @@ bfc_read_header(struct bfcfs_mount *bmp, struct thread *td)
 	}
 
 	/* Validate magic string */
-	if (strncmp(hdr->magic, "BFCFv1", 6) != 0) {
-		BFCFS_ERR("invalid magic: expected 'BFCFv1', got '%.8s'",
-		    hdr->magic);
+	if (strncmp(hdr->magic, BFC_MAGIC_STR, strlen(BFC_MAGIC_STR)) != 0) {
+		BFCFS_ERR("invalid magic: expected '%s', got '%.8s'",
+		    BFC_MAGIC_STR, hdr->magic);
 		return (EINVAL);
 	}
 
@@ -91,7 +91,7 @@ bfc_read_footer(struct bfcfs_mount *bmp, struct thread *td)
 	}
 
 	/* Validate footer magic */
-	if (strncmp(footer->magic_start, "BFCFIDX", 7) != 0) {
+	if (strncmp(footer->magic_start, BFC_INDEX_MAGIC, strlen(BFC_INDEX_MAGIC)) != 0) {
 		BFCFS_ERR("invalid footer magic");
 		return (EINVAL);
 	}
@@ -149,9 +149,7 @@ bfc_parse_index_entry(const uint8_t *buf, size_t buflen, size_t *offset,
 		return (EINVAL);
 
 	/* Read path length (32-bit) */
-	bcopy(p, &path_len, 4);
-	path_len = LE32(path_len);
-	p += 4;
+	READ_LE32(p, path_len);
 	remaining -= 4;
 
 	/* Sanity check path length */
@@ -170,37 +168,14 @@ bfc_parse_index_entry(const uint8_t *buf, size_t buflen, size_t *offset,
 		return (EINVAL);
 
 	/* Parse metadata fields (all little-endian) */
-	bcopy(p, &entry->obj_offset, 8);
-	entry->obj_offset = LE64(entry->obj_offset);
-	p += 8;
-
-	bcopy(p, &entry->obj_size, 8);
-	entry->obj_size = LE64(entry->obj_size);
-	p += 8;
-
-	bcopy(p, &entry->mode, 4);
-	entry->mode = LE32(entry->mode);
-	p += 4;
-
-	bcopy(p, &entry->mtime_ns, 8);
-	entry->mtime_ns = LE64(entry->mtime_ns);
-	p += 8;
-
-	bcopy(p, &entry->comp, 4);
-	entry->comp = LE32(entry->comp);
-	p += 4;
-
-	bcopy(p, &entry->enc, 4);
-	entry->enc = LE32(entry->enc);
-	p += 4;
-
-	bcopy(p, &entry->size, 8);	/* orig_size */
-	entry->size = LE64(entry->size);
-	p += 8;
-
-	bcopy(p, &entry->crc32c, 4);
-	entry->crc32c = LE32(entry->crc32c);
-	p += 4;
+	READ_LE64(p, entry->obj_offset);
+	READ_LE64(p, entry->obj_size);
+	READ_LE32(p, entry->mode);
+	READ_LE64(p, entry->mtime_ns);
+	READ_LE32(p, entry->comp);
+	READ_LE32(p, entry->enc);
+	READ_LE64(p, entry->size);	/* orig_size */
+	READ_LE32(p, entry->crc32c);
 
 	entry->ino = ino;
 
@@ -240,17 +215,17 @@ bfc_read_index(struct bfcfs_mount *bmp, struct thread *td)
 	}
 
 	/* Parse index header (8 bytes: version + count) */
-	if (bmp->footer.index_size < 8) {
+	if (bmp->footer.index_size < BFC_INDEX_HEADER_SIZE) {
 		BFCFS_ERR("index too small for header");
 		free(index_buf, M_BFCFS);
 		return (EINVAL);
 	}
 
+	/* Parse index header (version and count) */
 	uint32_t version, count;
-	bcopy(index_buf, &version, 4);
-	version = LE32(version);
-	bcopy(index_buf + 4, &count, 4);
-	count = LE32(count);
+	uint8_t *p = index_buf;
+	READ_LE32(p, version);
+	READ_LE32(p, count);
 
 	if (version != 1) {
 		BFCFS_ERR("unsupported index version: %u", version);
