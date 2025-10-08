@@ -9,14 +9,14 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    name: Build on FreeBSD 14.1
+    name: Build on FreeBSD 14.3
     steps:
       - uses: actions/checkout@v4
 
       - name: Build and test in FreeBSD VM
         uses: vmactions/freebsd-vm@v1
         with:
-          release: '14.1'
+          release: '14.3'
           usesh: true
           prepare: |
             pkg install -y llvm
@@ -28,9 +28,9 @@ jobs:
 
             # Verify kernel sources are available
             if [ ! -d /usr/src/sys ]; then
-              echo "ERROR: Kernel sources not found at /usr/src/sys"
+              echo "Kernel sources not found at /usr/src/sys"
               echo "Installing kernel sources..."
-              fetch https://download.freebsd.org/ftp/releases/amd64/14.1-RELEASE/src.txz
+              fetch https://download.freebsd.org/ftp/releases/amd64/14.3-RELEASE/src.txz
               tar -C / -xzf src.txz
             fi
 

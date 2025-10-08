@@ -1,7 +1,7 @@
 # BFCFS - FreeBSD Kernel Module
 
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](LICENSE)
-[![FreeBSD](https://img.shields.io/badge/FreeBSD-14.x+-red.svg)](https://www.freebsd.org/)
+[![FreeBSD](https://img.shields.io/badge/FreeBSD-14.3+-red.svg)](https://www.freebsd.org/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/zombocoder/bfcfs-freebsd/freebsd-build.yml?branch=main)](https://github.com/zombocoder/bfcfs-freebsd/actions)
 [![Status](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](#features)
 
@@ -16,7 +16,7 @@ FreeBSD kernel module for mounting BFC (Binary File Container) filesystem images
 
 ## Requirements
 
-- FreeBSD 14.x or later
+- FreeBSD 14.3 or later
 - Kernel sources installed at `/usr/src/sys`
 - C compiler (clang)
 
@@ -36,7 +36,7 @@ Before building, ensure you have:
 
    ```sh
    # If kernel sources are not installed, fetch them:
-   fetch https://download.freebsd.org/ftp/releases/amd64/14.1-RELEASE/src.txz
+   fetch https://download.freebsd.org/ftp/releases/amd64/14.3-RELEASE/src.txz
    doas tar -C / -xzf src.txz
    ```
 
@@ -350,7 +350,7 @@ Contributions are welcome! Please:
 
 1. **Fork the repository** and create a feature branch
 2. **Follow FreeBSD style(9)** coding standards
-3. **Test thoroughly** on FreeBSD 14.x
+3. **Test thoroughly** on FreeBSD 14.3+
 4. **Update documentation** as needed
 5. **Submit a pull request** with clear description
 
