@@ -31,6 +31,17 @@
 #define BFC_FOOTER_SIZE		56
 #define BFC_ALIGN		16
 
+/* Sanity limits for container validation */
+#define BFC_MAX_BLOCK_SIZE	(1024 * 1024)	/* 1MB max block size */
+#define BFC_MAX_INDEX_SIZE	(100 * 1024 * 1024)	/* 100MB max index */
+#define BFC_MAX_ENTRIES		1000000		/* 1M max entries */
+
+/* Time conversion constants */
+#define NSEC_PER_SEC		1000000000ULL	/* Nanoseconds per second */
+
+/* Size alignment */
+#define BFC_BLOCK_ROUND		512		/* Round size to 512-byte blocks */
+
 /* BFC object types */
 #define BFC_TYPE_FILE		1
 #define BFC_TYPE_DIR		2
@@ -208,7 +219,10 @@ int bfc_get_file_size(struct bfcfs_mount *bmp, off_t *size, struct thread *td);
 #define VFSTOBFCFS(mp)		((struct bfcfs_mount *)((mp)->mnt_data))
 #define VTOBFCFS(vp)		((struct bfcfs_node *)((vp)->v_data))
 
-/* Debug printf */
+/* Logging macros */
+#define BFCFS_ERR(fmt, ...)	printf("bfcfs: " fmt "\n", ##__VA_ARGS__)
+#define BFCFS_WARN(fmt, ...)	printf("bfcfs: " fmt "\n", ##__VA_ARGS__)
+
 #ifdef DEBUG
 #define BFCFS_DEBUG(fmt, ...)	printf("bfcfs: " fmt "\n", ##__VA_ARGS__)
 #else

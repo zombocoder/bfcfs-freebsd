@@ -95,7 +95,7 @@ bfcfs_mount(struct mount *mp)
 		/* Try to get the device path from "from" option */
 		error = vfs_getopt(mp->mnt_optnew, "from", &opt_ptr, &opt_len);
 		if (error || opt_ptr == NULL) {
-			printf("bfcfs: mount requires device path or -o source=/path/to/file.bfc\n");
+			BFCFS_ERR("mount requires device path or -o source=/path/to/file.bfc");
 			return (EINVAL);
 		}
 	}
@@ -113,7 +113,7 @@ bfcfs_mount(struct mount *mp)
 	error = vn_open(&nd, &flags, 0, NULL);
 	if (error) {
 		free(source_path, M_BFCFS);
-		printf("bfcfs: failed to open %s: error %d\n", source_path, error);
+		BFCFS_ERR("failed to open %s: error %d", source_path, error);
 		return (error);
 	}
 	NDFREE_PNBUF(&nd);
@@ -146,14 +146,14 @@ bfcfs_mount(struct mount *mp)
 	/* Read BFC header and validate */
 	error = bfc_read_header(bmp, td);
 	if (error) {
-		printf("bfcfs: invalid BFC header: error %d\n", error);
+		BFCFS_ERR("invalid BFC header: error %d", error);
 		goto fail;
 	}
 
 	/* Read and parse the index */
 	error = bfc_read_index(bmp, td);
 	if (error) {
-		printf("bfcfs: failed to read index: error %d\n", error);
+		BFCFS_ERR("failed to read index: error %d", error);
 		goto fail;
 	}
 
@@ -262,14 +262,14 @@ bfcfs_root(struct mount *mp, int flags, struct vnode **vpp)
 		BFCFS_DEBUG("root: creating synthetic root directory");
 		error = bfcfs_vnode_create(bmp, NULL, vpp);
 		if (error) {
-			printf("bfcfs: failed to create root vnode: %d\n", error);
+			BFCFS_ERR("failed to create root vnode: %d", error);
 			return (error);
 		}
 	} else {
 		/* Create/get vnode for explicit root entry */
 		error = bfcfs_vnode_create(bmp, root_entry, vpp);
 		if (error) {
-			printf("bfcfs: failed to create root vnode: %d\n", error);
+			BFCFS_ERR("failed to create root vnode: %d", error);
 			return (error);
 		}
 	}

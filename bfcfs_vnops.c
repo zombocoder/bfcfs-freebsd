@@ -212,9 +212,9 @@ bfcfs_getattr(struct vop_getattr_args *ap)
 		vap->va_mode = entry->mode & ALLPERMS;
 		vap->va_fileid = entry->ino;
 		vap->va_size = entry->size;
-		vap->va_bytes = (entry->size + 511) & ~511ULL;
-		vap->va_atime.tv_sec = entry->mtime_ns / 1000000000ULL;
-		vap->va_atime.tv_nsec = entry->mtime_ns % 1000000000ULL;
+		vap->va_bytes = (entry->size + (BFC_BLOCK_ROUND - 1)) & ~(BFC_BLOCK_ROUND - 1);
+		vap->va_atime.tv_sec = entry->mtime_ns / NSEC_PER_SEC;
+		vap->va_atime.tv_nsec = entry->mtime_ns % NSEC_PER_SEC;
 		vap->va_mtime = vap->va_atime;
 		vap->va_ctime = vap->va_atime;
 		vap->va_birthtime = vap->va_atime;
@@ -454,11 +454,15 @@ bfcfs_strategy(struct vop_strategy_args *ap)
 static int
 bfcfs_print(struct vop_print_args *ap)
 {
+#ifdef DEBUG
 	struct vnode *vp = ap->a_vp;
 	struct bfcfs_node *node = VTOBFCFS(vp);
-
-	printf("  vnode type=%d path=%s\n",
+	BFCFS_DEBUG("vnode type=%d path=%s",
 	    vp->v_type, node->entry ? node->entry->path : "<synthetic root>");
+#else
+	(void)ap;
+#endif
+
 	return (0);
 }
 

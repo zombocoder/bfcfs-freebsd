@@ -143,8 +143,8 @@ bfc_read_object(struct bfcfs_mount *bmp, struct bfcfs_index_entry *entry,
 		if (bmp->verify_crc && offset == 0 && len == entry->size) {
 			uint32_t crc = bfc_crc32c(buf, len);
 			if (crc != entry->crc32c) {
-				printf("bfcfs: CRC mismatch for %s: "
-				    "expected 0x%x, got 0x%x\n",
+				BFCFS_ERR("CRC mismatch for %s: "
+				    "expected 0x%x, got 0x%x",
 				    entry->path, entry->crc32c, crc);
 				return (EIO);
 			}
@@ -159,14 +159,14 @@ bfc_read_object(struct bfcfs_mount *bmp, struct bfcfs_index_entry *entry,
 	 * TODO: Add support for partial reads with decompression
 	 */
 	if (offset != 0 || len != entry->size) {
-		printf("bfcfs: partial reads not yet supported for "
-		    "compressed/encrypted files\n");
+		BFCFS_ERR("partial reads not yet supported for "
+		    "compressed/encrypted files");
 		return (EOPNOTSUPP);
 	}
 
 	/* Handle compressed files */
 	if (entry->comp == BFC_COMP_ZSTD) {
-		printf("bfcfs: ZSTD decompression not yet implemented\n");
+		BFCFS_ERR("ZSTD decompression not yet implemented");
 		return (EOPNOTSUPP);
 		/*
 		 * TODO: Implement ZSTD decompression
@@ -179,7 +179,7 @@ bfc_read_object(struct bfcfs_mount *bmp, struct bfcfs_index_entry *entry,
 
 	/* Handle encrypted files */
 	if (entry->enc == BFC_ENC_CHACHA20_POLY1305) {
-		printf("bfcfs: ChaCha20-Poly1305 decryption not yet implemented\n");
+		BFCFS_ERR("ChaCha20-Poly1305 decryption not yet implemented");
 		return (EOPNOTSUPP);
 		/*
 		 * TODO: Implement decryption
@@ -191,7 +191,7 @@ bfc_read_object(struct bfcfs_mount *bmp, struct bfcfs_index_entry *entry,
 	}
 
 	/* Unknown compression/encryption */
-	printf("bfcfs: unsupported compression (%u) or encryption (%u)\n",
+	BFCFS_ERR("unsupported compression (%u) or encryption (%u)",
 	    entry->comp, entry->enc);
 	return (EOPNOTSUPP);
 }
