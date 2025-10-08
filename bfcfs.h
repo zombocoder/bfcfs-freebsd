@@ -46,6 +46,10 @@
 /* Size alignment */
 #define BFC_BLOCK_ROUND		512		/* Round size to 512-byte blocks */
 
+/* Alignment macros */
+#define BFC_ALIGN_TO_BLOCK(size)	(((size) + (BFC_BLOCK_ROUND - 1)) & ~(BFC_BLOCK_ROUND - 1))
+#define BFC_ALIGN_UP(size, align)	(((size) + ((align) - 1)) & ~((align) - 1))
+
 /* VFS constants */
 #define BFC_DEFAULT_IO_SIZE	65536		/* 64KB optimal I/O size */
 #define BFC_ROOT_MODE		0755		/* Synthetic root directory mode */

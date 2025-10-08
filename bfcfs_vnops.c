@@ -212,7 +212,7 @@ bfcfs_getattr(struct vop_getattr_args *ap)
 		vap->va_mode = entry->mode & ALLPERMS;
 		vap->va_fileid = entry->ino;
 		vap->va_size = entry->size;
-		vap->va_bytes = (entry->size + (BFC_BLOCK_ROUND - 1)) & ~(BFC_BLOCK_ROUND - 1);
+		vap->va_bytes = BFC_ALIGN_TO_BLOCK(entry->size);
 		vap->va_atime.tv_sec = entry->mtime_ns / NSEC_PER_SEC;
 		vap->va_atime.tv_nsec = entry->mtime_ns % NSEC_PER_SEC;
 		vap->va_mtime = vap->va_atime;
