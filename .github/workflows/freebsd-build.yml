@@ -1,0 +1,59 @@
+name: FreeBSD Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build on FreeBSD 14.1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and test in FreeBSD VM
+        uses: vmactions/freebsd-vm@v1
+        with:
+          release: '14.1'
+          usesh: true
+          prepare: |
+            pkg install -y llvm
+
+          run: |
+            # Print FreeBSD version
+            freebsd-version
+            uname -a
+
+            # Verify kernel sources are available
+            if [ ! -d /usr/src/sys ]; then
+              echo "ERROR: Kernel sources not found at /usr/src/sys"
+              echo "Installing kernel sources..."
+              fetch https://download.freebsd.org/ftp/releases/amd64/14.1-RELEASE/src.txz
+              tar -C / -xzf src.txz
+            fi
+
+            # Show compiler version
+            cc --version
+
+            # Clean any previous builds
+            make clean || true
+
+            # Build the kernel module
+            echo "Building BFCFS kernel module..."
+            make
+
+            # Check if module was built
+            if [ ! -f bfcfs.ko ]; then
+              echo "ERROR: bfcfs.ko was not created"
+              exit 1
+            fi
+
+            echo "Build successful!"
+            ls -lh bfcfs.ko
+
+            # Check module information
+            file bfcfs.ko
+
+            echo "All checks passed!"

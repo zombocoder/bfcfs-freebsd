@@ -1,0 +1,52 @@
+# Object files
+*.o
+*.ko
+*.kld
+
+# Build artifacts
+bfcfs.ko
+export_syms
+.depend.*
+
+# Generated files
+opt_compat.h
+opt_global.h
+vnode_if.h
+vnode_if_newproto.h
+vnode_if_typedef.h
+
+# Symlinks to kernel sources
+machine
+x86
+i386
+amd64
+arm
+arm64
+
+# Editor temporary files
+*~
+*.swp
+*.swo
+.*.swp
+.*.swo
+
+# IDE files
+.vscode/
+.idea/
+*.iml
+
+# Core dumps
+*.core
+vmcore.*
+
+# Backup files
+*.bak
+*.orig
+
+# macOS
+.DS_Store
+
+# Tags files
+tags
+TAGS
+cscope.*
