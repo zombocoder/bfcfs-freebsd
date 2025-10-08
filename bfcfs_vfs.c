@@ -137,7 +137,8 @@ bfcfs_mount(struct mount *mp)
 	LIST_INIT(&bmp->index_list);
 
 	/* Parse optional mount options */
-	bmp->verify_crc = 1;  /* Default: verify CRC */
+	bmp->verify_crc = 1;  /* Default: verify CRC enabled */
+	bmp->no_readahead = 0;  /* Default: readahead enabled */
 	if (vfs_getopt(mp->mnt_optnew, "noverify", NULL, NULL) == 0)
 		bmp->verify_crc = 0;
 	if (vfs_getopt(mp->mnt_optnew, "noreadahead", NULL, NULL) == 0)

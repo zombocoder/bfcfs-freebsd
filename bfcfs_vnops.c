@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <sys/buf.h>
 #include <sys/bio.h>
+#include <sys/unistd.h>
 #include <vm/vm.h>
 #include <vm/vnode_pager.h>
 
@@ -475,19 +476,19 @@ bfcfs_pathconf(struct vop_pathconf_args *ap)
 	int error = 0;
 
 	switch (ap->a_name) {
-	case 1:	/* _PC_LINK_MAX */
-		*ap->a_retval = 1;
+	case _PC_LINK_MAX:
+		*ap->a_retval = BFC_LINK_MAX;
 		break;
-	case 4:	/* _PC_NAME_MAX */
+	case _PC_NAME_MAX:
 		*ap->a_retval = BFC_NAME_MAX;
 		break;
-	case 5:	/* _PC_PATH_MAX */
+	case _PC_PATH_MAX:
 		*ap->a_retval = BFC_PATH_MAX;
 		break;
-	case 7:	/* _PC_NO_TRUNC */
-		*ap->a_retval = 1;
+	case _PC_NO_TRUNC:
+		*ap->a_retval = 1;	/* Filenames are never truncated */
 		break;
-	case 18:	/* _PC_FILESIZEBITS */
+	case _PC_FILESIZEBITS:
 		*ap->a_retval = BFC_FILESIZEBITS;
 		break;
 	default:

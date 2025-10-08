@@ -43,8 +43,11 @@
 #define BFC_MAX_PATH_LEN	4096		/* Maximum path length */
 
 /* BFC index format constants */
+#define BFC_INDEX_VERSION		1	/* Supported index version */
 #define BFC_INDEX_HEADER_SIZE		8	/* Version (4) + count (4) */
 #define BFC_INDEX_ENTRY_METADATA_SIZE	48	/* Size of fixed metadata fields */
+#define BFC_PATH_LEN_SIZE		4	/* Size of path_len field (uint32_t) */
+#define BFC_INODE_START			1	/* First inode number (root is synthetic) */
 
 /* Time conversion constants */
 #define NSEC_PER_SEC		1000000000ULL	/* Nanoseconds per second */
@@ -75,6 +78,10 @@
 #define BFC_NAME_MAX		255		/* Maximum filename length */
 #define BFC_PATH_MAX		1024		/* Maximum path length for pathconf */
 #define BFC_FILESIZEBITS	64		/* File size bits (64-bit offsets) */
+#define BFC_LINK_MAX		1		/* Max hard links (read-only FS) */
+
+/* I/O constants */
+#define BFC_CRC32C_INIT		0		/* Initial CRC32C value */
 
 /* BFC object types */
 #define BFC_TYPE_FILE		1

@@ -78,9 +78,9 @@ bfc_crc32c(const void *buf, size_t len)
 {
 	/*
 	 * calculate_crc32c() from FreeBSD already handles initialization and XOR
-	 * Just pass 0 as initial CRC for a new calculation
+	 * Just pass BFC_CRC32C_INIT as initial CRC for a new calculation
 	 */
-	return calculate_crc32c(0, buf, len);
+	return calculate_crc32c(BFC_CRC32C_INIT, buf, len);
 }
 
 /*

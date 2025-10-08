@@ -144,13 +144,13 @@ bfc_parse_index_entry(const uint8_t *buf, size_t buflen, size_t *offset,
 	size_t remaining = buflen - *offset;
 	uint32_t path_len;
 
-	/* Need at least 4 bytes for path_len */
-	if (remaining < 4)
+	/* Need at least BFC_PATH_LEN_SIZE bytes for path_len */
+	if (remaining < BFC_PATH_LEN_SIZE)
 		return (EINVAL);
 
 	/* Read path length (32-bit) */
 	READ_LE32(p, path_len);
-	remaining -= 4;
+	remaining -= BFC_PATH_LEN_SIZE;
 
 	/* Sanity check path length */
 	if (path_len == 0 || path_len > BFC_MAX_PATH_LEN || path_len > remaining)
@@ -191,6 +191,8 @@ int
 bfc_read_index(struct bfcfs_mount *bmp, struct thread *td)
 {
 	uint8_t *index_buf = NULL;
+	uint8_t *p;
+	uint32_t version, count;
 	size_t offset = 0;
 	int error, i;
 
@@ -222,13 +224,13 @@ bfc_read_index(struct bfcfs_mount *bmp, struct thread *td)
 	}
 
 	/* Parse index header (version and count) */
-	uint32_t version, count;
-	uint8_t *p = index_buf;
+	p = index_buf;
 	READ_LE32(p, version);
 	READ_LE32(p, count);
 
-	if (version != 1) {
-		BFCFS_ERR("unsupported index version: %u", version);
+	if (version != BFC_INDEX_VERSION) {
+		BFCFS_ERR("unsupported index version: %u (expected %u)",
+		    version, BFC_INDEX_VERSION);
 		free(index_buf, M_BFCFS);
 		return (EINVAL);
 	}
@@ -247,11 +249,11 @@ bfc_read_index(struct bfcfs_mount *bmp, struct thread *td)
 	bmp->index = malloc(bmp->num_entries * sizeof(struct bfcfs_index_entry),
 	    M_BFCFS, M_WAITOK | M_ZERO);
 
-	/* Parse all entries (starting after 8-byte header) */
-	offset = 8;
+	/* Parse all entries (starting after index header) */
+	offset = BFC_INDEX_HEADER_SIZE;
 	for (i = 0; i < (int)bmp->num_entries; i++) {
 		error = bfc_parse_index_entry(index_buf, bmp->footer.index_size,
-		    &offset, &bmp->index[i], i + 1);  /* inode numbers start at 1 */
+		    &offset, &bmp->index[i], i + BFC_INODE_START);
 		if (error) {
 			BFCFS_ERR("failed to parse index entry %d: %d", i, error);
 			goto fail;
