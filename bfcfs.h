@@ -55,9 +55,9 @@
 /* Size alignment */
 #define BFC_BLOCK_ROUND		512		/* Round size to 512-byte blocks */
 
-/* Alignment macros */
-#define BFC_ALIGN_TO_BLOCK(size)	(((size) + (BFC_BLOCK_ROUND - 1)) & ~(BFC_BLOCK_ROUND - 1))
-#define BFC_ALIGN_UP(size, align)	(((size) + ((align) - 1)) & ~((align) - 1))
+/* Alignment macros - use ULL suffix for 64-bit arithmetic with large file sizes */
+#define BFC_ALIGN_TO_BLOCK(size)	(((size) + 511ULL) & ~511ULL)
+#define BFC_ALIGN_UP(size, align)	(((size) + ((align) - 1ULL)) & ~((align) - 1ULL))
 
 /* Helper macros for reading little-endian fields */
 #define READ_LE32(ptr, field) do { \
