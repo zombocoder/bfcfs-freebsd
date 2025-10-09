@@ -1,0 +1,11 @@
+-- BFCFS Test Suite Configuration
+-- $FreeBSD$
+
+syntax(2)
+
+test_suite("FreeBSD")
+
+atf_test_program{name="mount_test"}
+atf_test_program{name="read_test"}
+atf_test_program{name="readdir_test"}
+atf_test_program{name="symlink_test"}

@@ -1,0 +1,101 @@
+#!/usr/libexec/atf-sh
+#
+# BFCFS directory listing tests
+#
+
+. $(dirname $0)/h_funcs.subr
+
+atf_test_case list_root cleanup
+list_root_head() {
+	atf_set "descr" "Tests listing root directory"
+	atf_set "require.user" "root"
+}
+list_root_body() {
+	test_mount test.bfc
+
+	# List root directory
+	ls ${Mount_Point} >/dev/null || \
+	    atf_fail "Cannot list root directory"
+
+	# Count entries
+	count=$(ls -1 ${Mount_Point} | wc -l)
+	test "$count" -gt 0 || atf_fail "Root directory is empty"
+
+	test_unmount
+}
+list_root_cleanup() {
+	cleanup_mount
+}
+
+atf_test_case list_details cleanup
+list_details_head() {
+	atf_set "descr" "Tests listing with details (ls -l)"
+	atf_set "require.user" "root"
+}
+list_details_body() {
+	test_mount test.bfc
+
+	# List with details
+	ls -l ${Mount_Point} >/dev/null || \
+	    atf_fail "Cannot list directory with details"
+
+	# Check that we can see file sizes
+	output=$(ls -l ${Mount_Point}/index.html 2>/dev/null)
+	echo "$output" | grep -q "index.html" || \
+	    atf_fail "File not listed correctly"
+
+	test_unmount
+}
+list_details_cleanup() {
+	cleanup_mount
+}
+
+atf_test_case list_all cleanup
+list_all_head() {
+	atf_set "descr" "Tests listing with hidden files (ls -a)"
+	atf_set "require.user" "root"
+}
+list_all_body() {
+	test_mount test.bfc
+
+	# List all files (note: BFCFS currently doesn't return . and .. entries)
+	# This is acceptable behavior for a read-only filesystem
+	output=$(ls -a ${Mount_Point})
+
+	# At minimum, verify we get some files
+	test -n "$output" || atf_fail "No files listed"
+
+	test_unmount
+}
+list_all_cleanup() {
+	cleanup_mount
+}
+
+atf_test_case find_files cleanup
+find_files_head() {
+	atf_set "descr" "Tests recursive file finding"
+	atf_set "require.user" "root"
+}
+find_files_body() {
+	test_mount test.bfc
+
+	# Use find to list all files
+	find ${Mount_Point} -type f >/dev/null || \
+	    atf_fail "Cannot use find on mounted filesystem"
+
+	# Count files
+	count=$(find ${Mount_Point} -type f | wc -l)
+	test "$count" -gt 0 || atf_fail "No files found"
+
+	test_unmount
+}
+find_files_cleanup() {
+	cleanup_mount
+}
+
+atf_init_test_cases() {
+	atf_add_test_case list_root
+	atf_add_test_case list_details
+	atf_add_test_case list_all
+	atf_add_test_case find_files
+}

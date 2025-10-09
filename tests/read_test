@@ -1,0 +1,106 @@
+#!/usr/libexec/atf-sh
+#
+# BFCFS read operations tests
+#
+
+. $(dirname $0)/h_funcs.subr
+
+atf_test_case read_file cleanup
+read_file_head() {
+	atf_set "descr" "Tests reading a file from BFC container"
+	atf_set "require.user" "root"
+}
+read_file_body() {
+	test_mount test.bfc
+
+	# Test reading index.html
+	test -f ${Mount_Point}/index.html || \
+	    atf_fail "index.html not found in container"
+
+	# Read the file
+	content=$(cat ${Mount_Point}/index.html 2>/dev/null) || \
+	    atf_fail "Cannot read index.html"
+
+	# Check that we got some content
+	test -n "$content" || atf_fail "File is empty"
+
+	test_unmount
+}
+read_file_cleanup() {
+	cleanup_mount
+}
+
+atf_test_case read_multiple cleanup
+read_multiple_head() {
+	atf_set "descr" "Tests reading multiple files sequentially"
+	atf_set "require.user" "root"
+}
+read_multiple_body() {
+	test_mount test.bfc
+
+	# Read multiple files
+	for file in index.html style.css; do
+		if [ -f ${Mount_Point}/${file} ]; then
+			cat ${Mount_Point}/${file} >/dev/null || \
+			    atf_fail "Cannot read ${file}"
+		fi
+	done
+
+	test_unmount
+}
+read_multiple_cleanup() {
+	cleanup_mount
+}
+
+atf_test_case read_symlink cleanup
+read_symlink_head() {
+	atf_set "descr" "Tests reading file through symlink"
+	atf_set "require.user" "root"
+}
+read_symlink_body() {
+	test_mount test.bfc
+
+	# Check if symlink exists
+	if [ -L ${Mount_Point}/link ]; then
+		# Try to read through symlink
+		cat ${Mount_Point}/link >/dev/null || \
+		    atf_fail "Cannot read through symlink"
+	else
+		atf_skip "No symlink in test container"
+	fi
+
+	test_unmount
+}
+read_symlink_cleanup() {
+	cleanup_mount
+}
+
+atf_test_case stat_file cleanup
+stat_file_head() {
+	atf_set "descr" "Tests stat(2) on files in BFC container"
+	atf_set "require.user" "root"
+}
+stat_file_body() {
+	test_mount test.bfc
+
+	# Stat a file
+	eval $(stat -s ${Mount_Point}/index.html 2>/dev/null) || \
+	    atf_fail "Cannot stat index.html"
+
+	# Check that we got valid stat info
+	test -n "$st_size" || atf_fail "File size is not set"
+	test "$st_size" -gt 0 || atf_fail "File size is zero"
+	test -n "$st_mode" || atf_fail "File mode is not set"
+
+	test_unmount
+}
+stat_file_cleanup() {
+	cleanup_mount
+}
+
+atf_init_test_cases() {
+	atf_add_test_case read_file
+	atf_add_test_case read_multiple
+	atf_add_test_case read_symlink
+	atf_add_test_case stat_file
+}

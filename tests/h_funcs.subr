@@ -1,0 +1,110 @@
+#!/bin/sh
+#
+# Helper functions for BFCFS tests
+#
+
+# Mount point for tests
+Mount_Point=bfcfs_mnt
+
+# Fixtures directory
+Fixtures_Dir=$(dirname $0)/fixtures
+
+#
+# require_bfcfs
+#
+#	Checks that bfcfs kernel module is available
+#	and can be loaded. Skips the test if not available.
+#
+require_bfcfs() {
+	atf_require_prog mount
+	atf_require_prog umount
+	atf_require_prog kldload
+	atf_require_prog kldunload
+
+	# Check if module is already loaded
+	if kldstat -qm bfcfs; then
+		return 0
+	fi
+
+	# Try to load from common locations
+	local module_paths="/boot/modules/bfcfs.ko ../bfcfs.ko ./bfcfs.ko"
+	local loaded=0
+
+	for mod_path in $module_paths; do
+		if [ -f "$mod_path" ]; then
+			if kldload "$mod_path" 2>/dev/null; then
+				loaded=1
+				break
+			fi
+		fi
+	done
+
+	# If still not loaded, try system-wide kldload
+	if [ $loaded -eq 0 ]; then
+		if ! kldload bfcfs 2>/dev/null; then
+			atf_skip "bfcfs kernel module not available"
+		fi
+	fi
+
+	# Verify module is loaded
+	if ! kldstat -qm bfcfs; then
+		atf_skip "bfcfs kernel module failed to load"
+	fi
+}
+
+#
+# test_mount container [options]
+#
+#	Mounts a BFC container from the fixtures directory
+#
+test_mount() {
+	local container options container_path
+	container="${1}"
+	shift
+	options="$@"
+
+	require_bfcfs
+
+	# Create mount point
+	mkdir -p ${Mount_Point} || atf_fail "Cannot create mount point"
+
+	# Get absolute path to container
+	container_path="${Fixtures_Dir}/${container}"
+	if [ ! -f "${container_path}" ]; then
+		atf_fail "Test container not found: ${container_path}"
+	fi
+
+	# Always mount read-only (required by bfcfs)
+	# Add ro option if not already present
+	case "${options}" in
+		*ro*) ;;
+		*) options="-o ro ${options}" ;;
+	esac
+
+	# Mount the BFC container
+	mount -t bfcfs ${options} ${container_path} ${Mount_Point} || \
+	    atf_fail "Cannot mount BFC container"
+}
+
+#
+# test_unmount
+#
+#	Unmounts the test filesystem
+#
+test_unmount() {
+	umount ${Mount_Point} || atf_fail "Cannot unmount filesystem"
+	rmdir ${Mount_Point} 2>/dev/null || true
+}
+
+#
+# cleanup_mount
+#
+#	Cleanup function to be called in test cleanup
+#	Forcefully unmounts if still mounted
+#
+cleanup_mount() {
+	if mount | grep -q ${Mount_Point}; then
+		umount -f ${Mount_Point} 2>/dev/null || true
+	fi
+	rmdir ${Mount_Point} 2>/dev/null || true
+}

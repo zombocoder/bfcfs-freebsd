@@ -1,0 +1,92 @@
+#!/usr/libexec/atf-sh
+#
+# BFCFS symlink tests
+#
+
+. $(dirname $0)/h_funcs.subr
+
+atf_test_case readlink cleanup
+readlink_head() {
+	atf_set "descr" "Tests reading symlink target"
+	atf_set "require.user" "root"
+}
+readlink_body() {
+	test_mount test.bfc
+
+	# Check if test container has symlinks
+	if ! find ${Mount_Point} -type l 2>/dev/null | grep -q .; then
+		test_unmount
+		atf_skip "No symlinks in test container"
+	fi
+
+	# Find a symlink and read it
+	link=$(find ${Mount_Point} -type l | head -1)
+	target=$(readlink "$link") || \
+	    atf_fail "Cannot read symlink"
+
+	test -n "$target" || atf_fail "Symlink target is empty"
+
+	test_unmount
+}
+readlink_cleanup() {
+	cleanup_mount
+}
+
+atf_test_case follow_symlink cleanup
+follow_symlink_head() {
+	atf_set "descr" "Tests following symlinks to read target file"
+	atf_set "require.user" "root"
+}
+follow_symlink_body() {
+	test_mount test.bfc
+
+	# Check if test container has symlinks
+	if ! find ${Mount_Point} -type l 2>/dev/null | grep -q .; then
+		test_unmount
+		atf_skip "No symlinks in test container"
+	fi
+
+	# Find a symlink and read through it
+	link=$(find ${Mount_Point} -type l | head -1)
+	cat "$link" >/dev/null 2>&1 || \
+	    atf_fail "Cannot read through symlink"
+
+	test_unmount
+}
+follow_symlink_cleanup() {
+	cleanup_mount
+}
+
+atf_test_case stat_symlink cleanup
+stat_symlink_head() {
+	atf_set "descr" "Tests stat on symlinks (lstat)"
+	atf_set "require.user" "root"
+}
+stat_symlink_body() {
+	test_mount test.bfc
+
+	# Check if test container has symlinks
+	if ! find ${Mount_Point} -type l 2>/dev/null | grep -q .; then
+		test_unmount
+		atf_skip "No symlinks in test container"
+	fi
+
+	# Find a symlink and stat it
+	link=$(find ${Mount_Point} -type l | head -1)
+	eval $(stat -s "$link") || \
+	    atf_fail "Cannot stat symlink"
+
+	# Check if it's recognized as a symlink
+	test -L "$link" || atf_fail "File not recognized as symlink"
+
+	test_unmount
+}
+stat_symlink_cleanup() {
+	cleanup_mount
+}
+
+atf_init_test_cases() {
+	atf_add_test_case readlink
+	atf_add_test_case follow_symlink
+	atf_add_test_case stat_symlink
+}

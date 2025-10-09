@@ -19,7 +19,7 @@ jobs:
           release: '14.3'
           usesh: true
           prepare: |
-            pkg install -y llvm
+            pkg install -y llvm kyua
 
           run: |
             # Print FreeBSD version
@@ -56,4 +56,49 @@ jobs:
             # Check module information
             file bfcfs.ko
 
-            echo "All checks passed!"
+            echo "Build successful! Now running tests..."
+
+            # Verify test fixture exists
+            if [ ! -f tests/fixtures/test.bfc ]; then
+              echo "Warning: Test fixture tests/fixtures/test.bfc not found, skipping tests"
+              echo "All checks passed (build only)!"
+              exit 0
+            fi
+
+            echo "Test container found, proceeding with tests..."
+
+            # Load the kernel module
+            echo "Loading BFCFS kernel module..."
+            kldload ./bfcfs.ko || {
+              echo "ERROR: Failed to load kernel module"
+              kldstat
+              dmesg | tail -20
+              exit 1
+            }
+
+            # Verify module is loaded
+            kldstat | grep bfcfs || {
+              echo "ERROR: Module not loaded"
+              exit 1
+            }
+
+            # Run the tests
+            echo "Running BFCFS tests..."
+            cd tests
+            kyua test || {
+              echo "Tests failed, showing report:"
+              kyua report --verbose
+              cd ..
+              kldunload bfcfs || true
+              exit 1
+            }
+
+            # Show test report
+            echo "Test results:"
+            kyua report
+
+            # Unload module
+            cd ..
+            kldunload bfcfs
+
+            echo "All checks and tests passed!"

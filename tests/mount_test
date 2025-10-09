@@ -1,0 +1,84 @@
+#!/usr/libexec/atf-sh
+#
+# BFCFS mount/unmount tests
+#
+
+. $(dirname $0)/h_funcs.subr
+
+atf_test_case plain cleanup
+plain_head() {
+	atf_set "descr" "Tests basic mount and unmount of BFC container"
+	atf_set "require.user" "root"
+}
+plain_body() {
+	test_mount test.bfc
+	# Verify mount point exists and is accessible
+	test -d ${Mount_Point} || atf_fail "Mount point is not a directory"
+	test_unmount
+}
+plain_cleanup() {
+	cleanup_mount
+}
+
+atf_test_case verify_readonly cleanup
+verify_readonly_head() {
+	atf_set "descr" "Verifies that BFCFS is mounted read-only"
+	atf_set "require.user" "root"
+}
+verify_readonly_body() {
+	test_mount test.bfc
+	# Check that filesystem is read-only
+	mount | grep ${Mount_Point} | grep -q "read-only" || \
+	    atf_fail "Filesystem is not mounted read-only"
+
+	# Try to create a file (should fail)
+	if touch ${Mount_Point}/testfile 2>/dev/null; then
+		atf_fail "Should not be able to create files on read-only filesystem"
+	fi
+	test_unmount
+}
+verify_readonly_cleanup() {
+	cleanup_mount
+}
+
+atf_test_case mount_options cleanup
+mount_options_head() {
+	atf_set "descr" "Tests mount with noverify option"
+	atf_set "require.user" "root"
+}
+mount_options_body() {
+	test_mount test.bfc -o noverify
+	mount | grep ${Mount_Point} || atf_fail "Filesystem not mounted"
+	test_unmount
+}
+mount_options_cleanup() {
+	cleanup_mount
+}
+
+atf_test_case invalid_container cleanup
+invalid_container_head() {
+	atf_set "descr" "Tests mounting invalid BFC container fails gracefully"
+	atf_set "require.user" "root"
+}
+invalid_container_body() {
+	require_bfcfs
+	mkdir -p ${Mount_Point}
+
+	# Try to mount non-existent file (should fail)
+	if mount -t bfcfs /nonexistent.bfc ${Mount_Point} 2>/dev/null; then
+		umount ${Mount_Point}
+		atf_fail "Should not be able to mount non-existent container"
+	fi
+
+	rmdir ${Mount_Point}
+}
+invalid_container_cleanup() {
+	cleanup_mount
+}
+
+atf_init_test_cases() {
+	atf_add_test_case plain
+	atf_add_test_case verify_readonly
+	atf_add_test_case mount_options
+	atf_add_test_case invalid_container
+}
