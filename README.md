@@ -130,7 +130,7 @@ Low-level I/O routines (pread, object reading, CRC verification)
 bfcfs-freebsd/
 ├── .github/
 │   └── workflows/
-│       └── freebsd-build.yml  # GitHub Actions CI
+│       └── freebsd-build.yml  # GitHub Actions CI with tests
 ├── .gitignore                  # Git ignore rules
 ├── LICENSE                     # BSD 3-Clause License
 ├── Makefile                    # Build configuration
@@ -139,7 +139,16 @@ bfcfs-freebsd/
 ├── bfcfs_vfs.c                 # VFS operations
 ├── bfcfs_vnops.c               # Vnode operations
 ├── bfc_format.c                # BFC format parsing
-└── bfc_io.c                    # I/O routines
+├── bfc_io.c                    # I/O routines
+└── tests/                      # ATF test suite
+    ├── Kyuafile                # Test configuration
+    ├── h_funcs.subr            # Test helper functions
+    ├── mount_test              # Mount/unmount tests
+    ├── read_test               # Read operation tests
+    ├── readdir_test            # Directory listing tests
+    ├── symlink_test            # Symlink tests
+    └── fixtures/               # Test BFC containers
+        └── README.md           # Fixture documentation
 ```
 
 ## Debugging
@@ -218,6 +227,28 @@ doas kldload ./bfcfs.ko
 
 ### Testing:
 
+The module includes an ATF-based test suite using Kyua:
+
+```sh
+# Install test dependencies
+doas pkg install kyua
+
+# Load the module
+doas kldload ./bfcfs.ko
+
+# Run the test suite
+cd tests
+doas kyua test
+
+# View test results
+kyua report
+
+# Detailed report
+kyua report --verbose
+```
+
+#### Manual Testing:
+
 ```sh
 # Create a test mount point
 doas mkdir -p /mnt/bfc
@@ -225,13 +256,28 @@ doas mkdir -p /mnt/bfc
 # Mount test container
 doas mount -t bfcfs -o ro /path/to/test.bfc /mnt/bfc
 
-# Run tests
+# Run manual tests
 ls -la /mnt/bfc
 cat /mnt/bfc/somefile.txt
 find /mnt/bfc -type f
 
 # Unmount
 doas umount /mnt/bfc
+```
+
+### Test Suite Structure:
+
+```
+tests/
+├── Kyuafile              # Test configuration
+├── h_funcs.subr          # Helper functions
+├── mount_test            # Mount/unmount tests
+├── read_test             # Read operations tests
+├── readdir_test          # Directory listing tests
+├── symlink_test          # Symlink support tests
+└── fixtures/
+    ├── README.md         # Fixture documentation
+    └── test.bfc          # Test BFC container
 ```
 
 ## License
@@ -315,12 +361,12 @@ doas mount -t bfcfs -o ro /var/containers/website.bfc /var/www/html
 
 | Feature        | BFCFS | SquashFS | ISO9660 | FUSE   |
 | -------------- | ----- | -------- | ------- | ------ |
-| Read-only      | ✅    | ✅       | ✅      | ❌     |
-| Kernel module  | ✅    | ✅       | ✅      | ❌     |
-| Compression    | 🚧    | ✅       | ❌      | Varies |
-| Encryption     | 🚧    | ❌       | ❌      | Varies |
-| CRC integrity  | ✅    | ✅       | ❌      | Varies |
-| Cross-platform | ✅    | ✅       | ✅      | ✅     |
+| Read-only      | [x]   | [x]      | [x]     | [-]    |
+| Kernel module  | [x]   | [x]      | [x]     | [-]    |
+| Compression    | [ ]   | [x]      | [-]     | Varies |
+| Encryption     | [ ]   | [-]      | [-]     | Varies |
+| CRC integrity  | [x]   | [x]      | [-]     | Varies |
+| Cross-platform | [x]   | [x]      | [x]     | [x]    |
 | Performance    | High  | High     | High    | Medium |
 
 ## Project Status
@@ -329,20 +375,20 @@ doas mount -t bfcfs -o ro /var/containers/website.bfc /var/www/html
 
 ### Implemented Features
 
-- ✅ Mount/unmount operations
-- ✅ Directory listing and navigation
-- ✅ File reading (uncompressed)
-- ✅ Symlink support
-- ✅ CRC32C verification
-- ✅ Hardware-accelerated checksums
+- [x] Mount/unmount operations
+- [x] Directory listing and navigation
+- [x] File reading (uncompressed)
+- [x] Symlink support
+- [x] CRC32C verification
+- [x] Hardware-accelerated checksums
 
 ### Planned Features (Roadmap)
 
-- 🚧 ZSTD decompression support
-- 🚧 ChaCha20-Poly1305 decryption support
-- 🚧 Extended attributes
-- 🚧 Advanced mount options
-- 🚧 Performance optimizations
+- [ ] ZSTD decompression support
+- [ ] ChaCha20-Poly1305 decryption support
+- [ ] Extended attributes
+- [ ] Advanced mount options
+- [ ] Performance optimizations
 
 ## Contributing
 

@@ -95,7 +95,7 @@ bfcfs_mount(struct mount *mp)
 		/* Try to get the device path from "from" option */
 		error = vfs_getopt(mp->mnt_optnew, "from", &opt_ptr, &opt_len);
 		if (error || opt_ptr == NULL) {
-			printf("bfcfs: mount requires device path or -o source=/path/to/file.bfc\n");
+			BFCFS_ERR("mount requires device path or -o source=/path/to/file.bfc");
 			return (EINVAL);
 		}
 	}
@@ -113,7 +113,7 @@ bfcfs_mount(struct mount *mp)
 	error = vn_open(&nd, &flags, 0, NULL);
 	if (error) {
 		free(source_path, M_BFCFS);
-		printf("bfcfs: failed to open %s: error %d\n", source_path, error);
+		BFCFS_ERR("failed to open %s: error %d", source_path, error);
 		return (error);
 	}
 	NDFREE_PNBUF(&nd);
@@ -137,7 +137,8 @@ bfcfs_mount(struct mount *mp)
 	LIST_INIT(&bmp->index_list);
 
 	/* Parse optional mount options */
-	bmp->verify_crc = 1;  /* Default: verify CRC */
+	bmp->verify_crc = 1;  /* Default: verify CRC enabled */
+	bmp->no_readahead = 0;  /* Default: readahead enabled */
 	if (vfs_getopt(mp->mnt_optnew, "noverify", NULL, NULL) == 0)
 		bmp->verify_crc = 0;
 	if (vfs_getopt(mp->mnt_optnew, "noreadahead", NULL, NULL) == 0)
@@ -146,14 +147,14 @@ bfcfs_mount(struct mount *mp)
 	/* Read BFC header and validate */
 	error = bfc_read_header(bmp, td);
 	if (error) {
-		printf("bfcfs: invalid BFC header: error %d\n", error);
+		BFCFS_ERR("invalid BFC header: error %d", error);
 		goto fail;
 	}
 
 	/* Read and parse the index */
 	error = bfc_read_index(bmp, td);
 	if (error) {
-		printf("bfcfs: failed to read index: error %d\n", error);
+		BFCFS_ERR("failed to read index: error %d", error);
 		goto fail;
 	}
 
@@ -262,14 +263,14 @@ bfcfs_root(struct mount *mp, int flags, struct vnode **vpp)
 		BFCFS_DEBUG("root: creating synthetic root directory");
 		error = bfcfs_vnode_create(bmp, NULL, vpp);
 		if (error) {
-			printf("bfcfs: failed to create root vnode: %d\n", error);
+			BFCFS_ERR("failed to create root vnode: %d", error);
 			return (error);
 		}
 	} else {
 		/* Create/get vnode for explicit root entry */
 		error = bfcfs_vnode_create(bmp, root_entry, vpp);
 		if (error) {
-			printf("bfcfs: failed to create root vnode: %d\n", error);
+			BFCFS_ERR("failed to create root vnode: %d", error);
 			return (error);
 		}
 	}
@@ -294,7 +295,7 @@ bfcfs_statfs(struct mount *mp, struct statfs *sbp)
 	struct bfcfs_mount *bmp = VFSTOBFCFS(mp);
 
 	sbp->f_bsize = bmp->header.block_size;
-	sbp->f_iosize = 65536;  /* Optimal I/O size */
+	sbp->f_iosize = BFC_DEFAULT_IO_SIZE;
 	sbp->f_blocks = 0;      /* Unknown (container is append-only) */
 	sbp->f_bfree = 0;       /* Read-only */
 	sbp->f_bavail = 0;      /* Read-only */

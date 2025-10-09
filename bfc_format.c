@@ -33,14 +33,14 @@ bfc_read_header(struct bfcfs_mount *bmp, struct thread *td)
 	/* Read header from offset 0 */
 	error = bfc_pread(bmp, hdr, sizeof(*hdr), 0, td);
 	if (error) {
-		printf("bfcfs: failed to read header: %d\n", error);
+		BFCFS_ERR("failed to read header: %d", error);
 		return (error);
 	}
 
 	/* Validate magic string */
-	if (strncmp(hdr->magic, "BFCFv1", 6) != 0) {
-		printf("bfcfs: invalid magic: expected 'BFCFv1', got '%.8s'\n",
-		    hdr->magic);
+	if (strncmp(hdr->magic, BFC_MAGIC_STR, strlen(BFC_MAGIC_STR)) != 0) {
+		BFCFS_ERR("invalid magic: expected '%s', got '%.8s'",
+		    BFC_MAGIC_STR, hdr->magic);
 		return (EINVAL);
 	}
 
@@ -52,9 +52,10 @@ bfc_read_header(struct bfcfs_mount *bmp, struct thread *td)
 	BFCFS_DEBUG("format: header valid, block_size=%u, features=0x%lx",
 	    hdr->block_size, hdr->features);
 
-	/* Sanity check block size */
-	if (hdr->block_size == 0 || hdr->block_size > 1048576) {
-		printf("bfcfs: invalid block size: %u\n", hdr->block_size);
+	/* Sanity check block size (must be non-zero and reasonable) */
+	if (hdr->block_size == 0 || hdr->block_size > BFC_MAX_BLOCK_SIZE) {
+		BFCFS_ERR("invalid block size: %u (max %u)",
+		    hdr->block_size, BFC_MAX_BLOCK_SIZE);
 		return (EINVAL);
 	}
 
@@ -77,7 +78,7 @@ bfc_read_footer(struct bfcfs_mount *bmp, struct thread *td)
 		return (error);
 
 	if (file_size < (off_t)(BFC_HEADER_SIZE + BFC_FOOTER_SIZE)) {
-		printf("bfcfs: file too small: %ld bytes\n", file_size);
+		BFCFS_ERR("file too small: %ld bytes", file_size);
 		return (EINVAL);
 	}
 
@@ -85,13 +86,13 @@ bfc_read_footer(struct bfcfs_mount *bmp, struct thread *td)
 	footer_offset = file_size - BFC_FOOTER_SIZE;
 	error = bfc_pread(bmp, footer, sizeof(*footer), footer_offset, td);
 	if (error) {
-		printf("bfcfs: failed to read footer: %d\n", error);
+		BFCFS_ERR("failed to read footer: %d", error);
 		return (error);
 	}
 
 	/* Validate footer magic */
-	if (strncmp(footer->magic_start, "BFCFIDX", 7) != 0) {
-		printf("bfcfs: invalid footer magic\n");
+	if (strncmp(footer->magic_start, BFC_INDEX_MAGIC, strlen(BFC_INDEX_MAGIC)) != 0) {
+		BFCFS_ERR("invalid footer magic");
 		return (EINVAL);
 	}
 
@@ -107,12 +108,13 @@ bfc_read_footer(struct bfcfs_mount *bmp, struct thread *td)
 	/* Sanity checks */
 	if (footer->index_offset < BFC_HEADER_SIZE ||
 	    footer->index_offset >= (uint64_t)file_size) {
-		printf("bfcfs: invalid index offset: %lu\n", footer->index_offset);
+		BFCFS_ERR("invalid index offset: %lu", footer->index_offset);
 		return (EINVAL);
 	}
 
-	if (footer->index_size == 0 || footer->index_size > 100*1024*1024) {
-		printf("bfcfs: invalid index size: %lu\n", footer->index_size);
+	if (footer->index_size == 0 || footer->index_size > BFC_MAX_INDEX_SIZE) {
+		BFCFS_ERR("invalid index size: %lu (max %u)",
+		    footer->index_size, BFC_MAX_INDEX_SIZE);
 		return (EINVAL);
 	}
 
@@ -142,18 +144,16 @@ bfc_parse_index_entry(const uint8_t *buf, size_t buflen, size_t *offset,
 	size_t remaining = buflen - *offset;
 	uint32_t path_len;
 
-	/* Need at least 4 bytes for path_len */
-	if (remaining < 4)
+	/* Need at least BFC_PATH_LEN_SIZE bytes for path_len */
+	if (remaining < BFC_PATH_LEN_SIZE)
 		return (EINVAL);
 
 	/* Read path length (32-bit) */
-	bcopy(p, &path_len, 4);
-	path_len = LE32(path_len);
-	p += 4;
-	remaining -= 4;
+	READ_LE32(p, path_len);
+	remaining -= BFC_PATH_LEN_SIZE;
 
 	/* Sanity check path length */
-	if (path_len == 0 || path_len > 4096 || path_len > remaining)
+	if (path_len == 0 || path_len > BFC_MAX_PATH_LEN || path_len > remaining)
 		return (EINVAL);
 
 	/* Allocate and copy path */
@@ -163,42 +163,19 @@ bfc_parse_index_entry(const uint8_t *buf, size_t buflen, size_t *offset,
 	p += path_len;
 	remaining -= path_len;
 
-	/* Need at least 48 more bytes for metadata */
-	if (remaining < 48)
+	/* Need at least metadata bytes for entry fields */
+	if (remaining < BFC_INDEX_ENTRY_METADATA_SIZE)
 		return (EINVAL);
 
 	/* Parse metadata fields (all little-endian) */
-	bcopy(p, &entry->obj_offset, 8);
-	entry->obj_offset = LE64(entry->obj_offset);
-	p += 8;
-
-	bcopy(p, &entry->obj_size, 8);
-	entry->obj_size = LE64(entry->obj_size);
-	p += 8;
-
-	bcopy(p, &entry->mode, 4);
-	entry->mode = LE32(entry->mode);
-	p += 4;
-
-	bcopy(p, &entry->mtime_ns, 8);
-	entry->mtime_ns = LE64(entry->mtime_ns);
-	p += 8;
-
-	bcopy(p, &entry->comp, 4);
-	entry->comp = LE32(entry->comp);
-	p += 4;
-
-	bcopy(p, &entry->enc, 4);
-	entry->enc = LE32(entry->enc);
-	p += 4;
-
-	bcopy(p, &entry->size, 8);	/* orig_size */
-	entry->size = LE64(entry->size);
-	p += 8;
-
-	bcopy(p, &entry->crc32c, 4);
-	entry->crc32c = LE32(entry->crc32c);
-	p += 4;
+	READ_LE64(p, entry->obj_offset);
+	READ_LE64(p, entry->obj_size);
+	READ_LE32(p, entry->mode);
+	READ_LE64(p, entry->mtime_ns);
+	READ_LE32(p, entry->comp);
+	READ_LE32(p, entry->enc);
+	READ_LE64(p, entry->size);	/* orig_size */
+	READ_LE32(p, entry->crc32c);
 
 	entry->ino = ino;
 
@@ -214,6 +191,8 @@ int
 bfc_read_index(struct bfcfs_mount *bmp, struct thread *td)
 {
 	uint8_t *index_buf = NULL;
+	uint8_t *p;
+	uint32_t version, count;
 	size_t offset = 0;
 	int error, i;
 
@@ -232,33 +211,34 @@ bfc_read_index(struct bfcfs_mount *bmp, struct thread *td)
 	error = bfc_pread(bmp, index_buf, bmp->footer.index_size,
 	    bmp->footer.index_offset, td);
 	if (error) {
-		printf("bfcfs: failed to read index: %d\n", error);
+		BFCFS_ERR("failed to read index: %d", error);
 		free(index_buf, M_BFCFS);
 		return (error);
 	}
 
 	/* Parse index header (8 bytes: version + count) */
-	if (bmp->footer.index_size < 8) {
-		printf("bfcfs: index too small for header\n");
+	if (bmp->footer.index_size < BFC_INDEX_HEADER_SIZE) {
+		BFCFS_ERR("index too small for header");
 		free(index_buf, M_BFCFS);
 		return (EINVAL);
 	}
 
-	uint32_t version, count;
-	bcopy(index_buf, &version, 4);
-	version = LE32(version);
-	bcopy(index_buf + 4, &count, 4);
-	count = LE32(count);
+	/* Parse index header (version and count) */
+	p = index_buf;
+	READ_LE32(p, version);
+	READ_LE32(p, count);
 
-	if (version != 1) {
-		printf("bfcfs: unsupported index version: %u\n", version);
+	if (version != BFC_INDEX_VERSION) {
+		BFCFS_ERR("unsupported index version: %u (expected %u)",
+		    version, BFC_INDEX_VERSION);
 		free(index_buf, M_BFCFS);
 		return (EINVAL);
 	}
 
 	bmp->num_entries = count;
-	if (bmp->num_entries == 0 || bmp->num_entries > 1000000) {
-		printf("bfcfs: invalid entry count: %u\n", bmp->num_entries);
+	if (bmp->num_entries == 0 || bmp->num_entries > BFC_MAX_ENTRIES) {
+		BFCFS_ERR("invalid entry count: %u (max %u)",
+		    bmp->num_entries, BFC_MAX_ENTRIES);
 		free(index_buf, M_BFCFS);
 		return (EINVAL);
 	}
@@ -269,13 +249,13 @@ bfc_read_index(struct bfcfs_mount *bmp, struct thread *td)
 	bmp->index = malloc(bmp->num_entries * sizeof(struct bfcfs_index_entry),
 	    M_BFCFS, M_WAITOK | M_ZERO);
 
-	/* Parse all entries (starting after 8-byte header) */
-	offset = 8;
+	/* Parse all entries (starting after index header) */
+	offset = BFC_INDEX_HEADER_SIZE;
 	for (i = 0; i < (int)bmp->num_entries; i++) {
 		error = bfc_parse_index_entry(index_buf, bmp->footer.index_size,
-		    &offset, &bmp->index[i], i + 1);  /* inode numbers start at 1 */
+		    &offset, &bmp->index[i], i + BFC_INODE_START);
 		if (error) {
-			printf("bfcfs: failed to parse index entry %d: %d\n", i, error);
+			BFCFS_ERR("failed to parse index entry %d: %d", i, error);
 			goto fail;
 		}
 

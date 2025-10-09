@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <sys/buf.h>
 #include <sys/bio.h>
+#include <sys/unistd.h>
 #include <vm/vm.h>
 #include <vm/vnode_pager.h>
 
@@ -198,7 +199,7 @@ bfcfs_getattr(struct vop_getattr_args *ap)
 
 	/* Handle synthetic root (NULL entry) */
 	if (entry == NULL) {
-		vap->va_mode = S_IFDIR | 0755;
+		vap->va_mode = S_IFDIR | BFC_ROOT_MODE;
 		vap->va_fileid = 1;
 		vap->va_size = 0;
 		vap->va_bytes = 0;
@@ -212,9 +213,9 @@ bfcfs_getattr(struct vop_getattr_args *ap)
 		vap->va_mode = entry->mode & ALLPERMS;
 		vap->va_fileid = entry->ino;
 		vap->va_size = entry->size;
-		vap->va_bytes = (entry->size + 511) & ~511ULL;
-		vap->va_atime.tv_sec = entry->mtime_ns / 1000000000ULL;
-		vap->va_atime.tv_nsec = entry->mtime_ns % 1000000000ULL;
+		vap->va_bytes = BFC_ALIGN_TO_BLOCK(entry->size);
+		vap->va_atime.tv_sec = entry->mtime_ns / NSEC_PER_SEC;
+		vap->va_atime.tv_nsec = entry->mtime_ns % NSEC_PER_SEC;
 		vap->va_mtime = vap->va_atime;
 		vap->va_ctime = vap->va_atime;
 		vap->va_birthtime = vap->va_atime;
@@ -262,7 +263,7 @@ bfcfs_access(struct vop_access_args *ap)
 		return (EROFS);
 
 	/* Get mode: synthetic root or from entry */
-	mode = (node->entry == NULL) ? 0755 : (node->entry->mode & ALLPERMS);
+	mode = (node->entry == NULL) ? BFC_ROOT_MODE : (node->entry->mode & ALLPERMS);
 
 	/* Simple permission check based on mode bits */
 	return (vaccess(vp->v_type, mode, 0, 0, accmode, ap->a_cred));
@@ -454,11 +455,15 @@ bfcfs_strategy(struct vop_strategy_args *ap)
 static int
 bfcfs_print(struct vop_print_args *ap)
 {
+#ifdef DEBUG
 	struct vnode *vp = ap->a_vp;
 	struct bfcfs_node *node = VTOBFCFS(vp);
-
-	printf("  vnode type=%d path=%s\n",
+	BFCFS_DEBUG("vnode type=%d path=%s",
 	    vp->v_type, node->entry ? node->entry->path : "<synthetic root>");
+#else
+	(void)ap;
+#endif
+
 	return (0);
 }
 
@@ -471,20 +476,20 @@ bfcfs_pathconf(struct vop_pathconf_args *ap)
 	int error = 0;
 
 	switch (ap->a_name) {
-	case 1:	/* _PC_LINK_MAX */
-		*ap->a_retval = 1;
+	case _PC_LINK_MAX:
+		*ap->a_retval = BFC_LINK_MAX;
 		break;
-	case 4:	/* _PC_NAME_MAX */
-		*ap->a_retval = 255;	/* NAME_MAX */
+	case _PC_NAME_MAX:
+		*ap->a_retval = BFC_NAME_MAX;
 		break;
-	case 5:	/* _PC_PATH_MAX */
-		*ap->a_retval = 1024;	/* PATH_MAX */
+	case _PC_PATH_MAX:
+		*ap->a_retval = BFC_PATH_MAX;
 		break;
-	case 7:	/* _PC_NO_TRUNC */
-		*ap->a_retval = 1;
+	case _PC_NO_TRUNC:
+		*ap->a_retval = 1;	/* Filenames are never truncated */
 		break;
-	case 18:	/* _PC_FILESIZEBITS */
-		*ap->a_retval = 64;
+	case _PC_FILESIZEBITS:
+		*ap->a_retval = BFC_FILESIZEBITS;
 		break;
 	default:
 		error = EINVAL;

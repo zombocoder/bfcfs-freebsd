@@ -31,6 +31,58 @@
 #define BFC_FOOTER_SIZE		56
 #define BFC_ALIGN		16
 
+/* Magic strings */
+#define BFC_MAGIC_STR		"BFCFv1"
+#define BFC_INDEX_MAGIC		"BFCFIDX"
+#define BFC_INDEX_END		"BFCFEND"
+
+/* Sanity limits for container validation */
+#define BFC_MAX_BLOCK_SIZE	(1024 * 1024)	/* 1MB max block size */
+#define BFC_MAX_INDEX_SIZE	(100 * 1024 * 1024)	/* 100MB max index */
+#define BFC_MAX_ENTRIES		1000000		/* 1M max entries */
+#define BFC_MAX_PATH_LEN	4096		/* Maximum path length */
+
+/* BFC index format constants */
+#define BFC_INDEX_VERSION		1	/* Supported index version */
+#define BFC_INDEX_HEADER_SIZE		8	/* Version (4) + count (4) */
+#define BFC_INDEX_ENTRY_METADATA_SIZE	48	/* Size of fixed metadata fields */
+#define BFC_PATH_LEN_SIZE		4	/* Size of path_len field (uint32_t) */
+#define BFC_INODE_START			1	/* First inode number (root is synthetic) */
+
+/* Time conversion constants */
+#define NSEC_PER_SEC		1000000000ULL	/* Nanoseconds per second */
+
+/* Size alignment */
+#define BFC_BLOCK_ROUND		512		/* Round size to 512-byte blocks */
+
+/* Alignment macros - use ULL suffix for 64-bit arithmetic with large file sizes */
+#define BFC_ALIGN_TO_BLOCK(size)	(((size) + 511ULL) & ~511ULL)
+#define BFC_ALIGN_UP(size, align)	(((size) + ((align) - 1ULL)) & ~((align) - 1ULL))
+
+/* Helper macros for reading little-endian fields */
+#define READ_LE32(ptr, field) do { \
+	bcopy(ptr, &(field), 4); \
+	(field) = LE32(field); \
+	(ptr) += 4; \
+} while (0)
+
+#define READ_LE64(ptr, field) do { \
+	bcopy(ptr, &(field), 8); \
+	(field) = LE64(field); \
+	(ptr) += 8; \
+} while (0)
+
+/* VFS constants */
+#define BFC_DEFAULT_IO_SIZE	65536		/* 64KB optimal I/O size */
+#define BFC_ROOT_MODE		0755		/* Synthetic root directory mode */
+#define BFC_NAME_MAX		255		/* Maximum filename length */
+#define BFC_PATH_MAX		1024		/* Maximum path length for pathconf */
+#define BFC_FILESIZEBITS	64		/* File size bits (64-bit offsets) */
+#define BFC_LINK_MAX		1		/* Max hard links (read-only FS) */
+
+/* I/O constants */
+#define BFC_CRC32C_INIT		0		/* Initial CRC32C value */
+
 /* BFC object types */
 #define BFC_TYPE_FILE		1
 #define BFC_TYPE_DIR		2
@@ -208,7 +260,10 @@ int bfc_get_file_size(struct bfcfs_mount *bmp, off_t *size, struct thread *td);
 #define VFSTOBFCFS(mp)		((struct bfcfs_mount *)((mp)->mnt_data))
 #define VTOBFCFS(vp)		((struct bfcfs_node *)((vp)->v_data))
 
-/* Debug printf */
+/* Logging macros */
+#define BFCFS_ERR(fmt, ...)	printf("bfcfs: " fmt "\n", ##__VA_ARGS__)
+#define BFCFS_WARN(fmt, ...)	printf("bfcfs: " fmt "\n", ##__VA_ARGS__)
+
 #ifdef DEBUG
 #define BFCFS_DEBUG(fmt, ...)	printf("bfcfs: " fmt "\n", ##__VA_ARGS__)
 #else
