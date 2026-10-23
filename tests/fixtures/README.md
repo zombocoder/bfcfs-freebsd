@@ -33,7 +33,19 @@ The test suite expects the following containers:
 1. **test.bfc** - Basic container with:
    - `index.html` - Simple HTML file
    - `style.css` - Simple CSS file (optional)
-   - `link` - Symlink to index.html (optional)
+   - `assets/` - Subdirectory with files (used by the `..` and `find` tests)
+   - `link` - Symlink to `index.html`
+   - `assets/up` - Symlink to `../index.html`
+
+   The bundled `test.bfc` holds a small built web site (`index.html`,
+   `vite.svg`, `assets/*`) plus the two symlinks above. To add the symlinks
+   to a container of your own:
+
+   ```bash
+   ln -s index.html test_data/link
+   ln -s ../index.html test_data/assets/up
+   (cd test_data && bfc create ../test.bfc *)
+   ```
 
 ## Container Requirements
 

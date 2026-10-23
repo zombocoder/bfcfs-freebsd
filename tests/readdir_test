@@ -93,9 +93,57 @@ find_files_cleanup() {
 	cleanup_mount
 }
 
+atf_test_case find_complete cleanup
+find_complete_head() {
+	atf_set "descr" "Tests that find walks the whole tree without errors"
+	atf_set "require.user" "root"
+}
+find_complete_body() {
+	test_mount test.bfc
+
+	# find climbs back out of each directory through "..", so a broken
+	# ".." lookup shows up as a non-zero exit and an fts_read error
+	find ${Mount_Point} >/dev/null 2>find.err || \
+	    atf_fail "find failed: $(cat find.err)"
+	test -s find.err && atf_fail "find reported errors: $(cat find.err)"
+
+	test_unmount
+}
+find_complete_cleanup() {
+	cleanup_mount
+}
+
+atf_test_case dotdot cleanup
+dotdot_head() {
+	atf_set "descr" "Tests looking up .. from a subdirectory"
+	atf_set "require.user" "root"
+}
+dotdot_body() {
+	test_mount test.bfc
+
+	test -d ${Mount_Point}/assets || \
+	    atf_fail "assets directory not found in container"
+
+	test -f ${Mount_Point}/assets/../index.html || \
+	    atf_fail "Cannot look up .. from assets"
+
+	# .. of a subdirectory must be the same node as the root
+	root_ino=$(stat -f %i ${Mount_Point})
+	up_ino=$(stat -f %i ${Mount_Point}/assets/..)
+	test "$root_ino" = "$up_ino" || \
+	    atf_fail "assets/.. is inode $up_ino, expected root inode $root_ino"
+
+	test_unmount
+}
+dotdot_cleanup() {
+	cleanup_mount
+}
+
 atf_init_test_cases() {
 	atf_add_test_case list_root
 	atf_add_test_case list_details
 	atf_add_test_case list_all
 	atf_add_test_case find_files
+	atf_add_test_case find_complete
+	atf_add_test_case dotdot
 }

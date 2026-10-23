@@ -28,6 +28,7 @@ static vop_close_t	bfcfs_close;
 static vop_access_t	bfcfs_access;
 static vop_read_t	bfcfs_read;
 static vop_readdir_t	bfcfs_readdir;
+static vop_readlink_t	bfcfs_readlink;
 static vop_reclaim_t	bfcfs_reclaim;
 static vop_strategy_t	bfcfs_strategy;
 static vop_print_t	bfcfs_print;
@@ -43,6 +44,7 @@ struct vop_vector bfcfs_vnodeops = {
 	.vop_access	= bfcfs_access,
 	.vop_read	= bfcfs_read,
 	.vop_readdir	= bfcfs_readdir,
+	.vop_readlink	= bfcfs_readlink,
 	.vop_reclaim	= bfcfs_reclaim,
 	.vop_strategy	= bfcfs_strategy,
 	.vop_print	= bfcfs_print,
@@ -77,6 +79,14 @@ bfcfs_vnode_create(struct bfcfs_mount *bmp, struct bfcfs_index_entry *entry,
 	node->vnode = vp;
 
 	vp->v_data = node;
+
+	/*
+	 * getnewvnode() sets bo_bsize to f_iosize (64KB), but the vnode pager
+	 * treats it as the sector size and needs it below PAGE_SIZE. With 64KB
+	 * it rounds the I/O past the mapped pages and panics in
+	 * vnode_pager_generic_getpages_done() on any mmap of a bfcfs file.
+	 */
+	vp->v_bufobj.bo_bsize = DEV_BSIZE;
 
 	/* Set vnode type based on mode (or VDIR for synthetic root) */
 	if (entry == NULL) {
@@ -114,6 +124,21 @@ bfcfs_vnode_create(struct bfcfs_mount *bmp, struct bfcfs_index_entry *entry,
 }
 
 /*
+ * Allocator for vn_vget_ino_gen() when looking up "..".
+ * arg is the parent index entry, or NULL when the parent is the root.
+ */
+static int
+bfcfs_dotdot_alloc(struct mount *mp, void *arg, int lkflags,
+    struct vnode **vpp)
+{
+	struct bfcfs_index_entry *parent = arg;
+
+	if (parent == NULL)
+		return (VFS_ROOT(mp, lkflags, vpp));
+	return (bfcfs_vnode_create(VFSTOBFCFS(mp), parent, vpp));
+}
+
+/*
  * VOP_LOOKUP - Lookup a file/directory in a directory
  */
 static int
@@ -126,6 +151,7 @@ bfcfs_lookup(struct vop_lookup_args *ap)
 	struct bfcfs_mount *bmp = dnode->bmp;
 	struct bfcfs_index_entry *entry;
 	char path[MAXPATHLEN];
+	char *slash;
 	int error, nameiop = cnp->cn_nameiop;
 
 	*vpp = NULL;
@@ -139,6 +165,35 @@ bfcfs_lookup(struct vop_lookup_args *ap)
 		VREF(dvp);
 		*vpp = dvp;
 		return (0);
+	}
+
+	/*
+	 * Handle "..": the parent is this directory's path without its last
+	 * component. namei() crosses the mount point itself, so ".." of the
+	 * root only gets here in odd cases; answer it like ".".
+	 */
+	if (cnp->cn_flags & ISDOTDOT) {
+		if (dnode->entry == NULL || (dvp->v_vflag & VV_ROOT)) {
+			VREF(dvp);
+			*vpp = dvp;
+			return (0);
+		}
+
+		strlcpy(path, dnode->entry->path, sizeof(path));
+		slash = strrchr(path, '/');
+		if (slash == NULL || slash == path) {
+			/* Top-level entry: the parent is the root */
+			entry = NULL;
+		} else {
+			*slash = '\0';
+			entry = bfc_lookup_path(bmp, path);
+			if (entry == NULL)
+				return (ENOENT);
+		}
+
+		/* Unlocks dvp while the parent is locked, avoiding deadlock */
+		return (vn_vget_ino_gen(dvp, bfcfs_dotdot_alloc, entry,
+		    cnp->cn_lkflags, vpp));
 	}
 
 	/* Build full path: parent_path + "/" + component */
@@ -394,6 +449,37 @@ bfcfs_readdir(struct vop_readdir_args *ap)
 }
 
 /*
+ * VOP_READLINK - Read symlink target
+ * BFC stores the target as the object content, so entry->size is its length.
+ */
+static int
+bfcfs_readlink(struct vop_readlink_args *ap)
+{
+	struct vnode *vp = ap->a_vp;
+	struct bfcfs_node *node = VTOBFCFS(vp);
+	struct bfcfs_index_entry *entry = node->entry;
+	void *buf;
+	int error;
+
+	if (vp->v_type != VLNK || entry == NULL)
+		return (EINVAL);
+	if (entry->size == 0)
+		return (0);
+	if (entry->size > MAXPATHLEN)
+		return (ENAMETOOLONG);
+
+	buf = malloc(entry->size, M_BFCFS, M_WAITOK);
+
+	/* Full-object read, so the CRC is checked when verification is on */
+	error = bfc_read_object(node->bmp, entry, buf, entry->size, 0, curthread);
+	if (error == 0)
+		error = uiomove(buf, entry->size, ap->a_uio);
+
+	free(buf, M_BFCFS);
+	return (error);
+}
+
+/*
  * VOP_RECLAIM - Reclaim vnode (called when vnode is being freed)
  */
 static int
@@ -424,6 +510,7 @@ bfcfs_strategy(struct vop_strategy_args *ap)
 	struct vnode *vp = ap->a_vp;
 	struct bfcfs_node *node = VTOBFCFS(vp);
 	struct bfcfs_index_entry *entry = node->entry;
+	size_t len;
 	int error;
 
 	/* Read-only filesystem - should not get write requests */
@@ -434,9 +521,22 @@ bfcfs_strategy(struct vop_strategy_args *ap)
 		return (EROFS);
 	}
 
-	/* Read data from BFC object */
-	error = bfc_read_object(node->bmp, entry, bp->b_data,
-	    bp->b_bcount, bp->b_iooffset, curthread);
+	/*
+	 * The pager rounds b_bcount up to the sector size, so the buffer can
+	 * extend past EOF. Read only what the file has and zero the rest, so
+	 * the tail of the last mapped page does not expose stale memory.
+	 */
+	len = 0;
+	if (bp->b_iooffset < (off_t)entry->size)
+		len = MIN((off_t)bp->b_bcount,
+		    (off_t)entry->size - bp->b_iooffset);
+
+	error = 0;
+	if (len > 0)
+		error = bfc_read_object(node->bmp, entry, bp->b_data,
+		    len, bp->b_iooffset, curthread);
+	if (error == 0 && len < (size_t)bp->b_bcount)
+		bzero((char *)bp->b_data + len, bp->b_bcount - len);
 
 	if (error) {
 		bp->b_error = error;

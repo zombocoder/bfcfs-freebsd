@@ -85,8 +85,51 @@ stat_symlink_cleanup() {
 	cleanup_mount
 }
 
+atf_test_case readlink_target cleanup
+readlink_target_head() {
+	atf_set "descr" "Tests that readlink returns the stored target"
+	atf_set "require.user" "root"
+}
+readlink_target_body() {
+	test_mount test.bfc
+
+	target=$(readlink ${Mount_Point}/link) || \
+	    atf_fail "Cannot read symlink 'link'"
+	test "$target" = "index.html" || \
+	    atf_fail "link points to '$target', expected 'index.html'"
+
+	test_unmount
+}
+readlink_target_cleanup() {
+	cleanup_mount
+}
+
+atf_test_case symlink_to_parent cleanup
+symlink_to_parent_head() {
+	atf_set "descr" "Tests a relative symlink that points into the parent directory"
+	atf_set "require.user" "root"
+}
+symlink_to_parent_body() {
+	test_mount test.bfc
+
+	target=$(readlink ${Mount_Point}/assets/up) || \
+	    atf_fail "Cannot read symlink 'assets/up'"
+	test "$target" = "../index.html" || \
+	    atf_fail "assets/up points to '$target', expected '../index.html'"
+
+	cmp -s ${Mount_Point}/assets/up ${Mount_Point}/index.html || \
+	    atf_fail "Reading through assets/up does not give index.html"
+
+	test_unmount
+}
+symlink_to_parent_cleanup() {
+	cleanup_mount
+}
+
 atf_init_test_cases() {
 	atf_add_test_case readlink
 	atf_add_test_case follow_symlink
 	atf_add_test_case stat_symlink
+	atf_add_test_case readlink_target
+	atf_add_test_case symlink_to_parent
 }

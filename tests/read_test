@@ -98,9 +98,32 @@ stat_file_cleanup() {
 	cleanup_mount
 }
 
+atf_test_case read_mmap cleanup
+read_mmap_head() {
+	atf_set "descr" "Tests that mmap(2) of files matches read(2)"
+	atf_set "require.user" "root"
+}
+read_mmap_body() {
+	test_mount test.bfc
+
+	# cmp(1) maps regular files with mmap(2) and reads stdin with read(2),
+	# so this checks the page-in path against the read path. Files smaller
+	# than a page and spanning several pages both go through the pager.
+	for file in $(find ${Mount_Point} -type f); do
+		cat "$file" | cmp -s - "$file" || \
+		    atf_fail "mmap and read differ for ${file#${Mount_Point}/}"
+	done
+
+	test_unmount
+}
+read_mmap_cleanup() {
+	cleanup_mount
+}
+
 atf_init_test_cases() {
 	atf_add_test_case read_file
 	atf_add_test_case read_multiple
 	atf_add_test_case read_symlink
 	atf_add_test_case stat_file
+	atf_add_test_case read_mmap
 }
