@@ -18,22 +18,31 @@ jobs:
         with:
           release: '14.3'
           usesh: true
-          # kyua is part of the FreeBSD base system (/usr/bin/kyua) and is
-          # no longer published as a package.
+          # kyua and the compiler come with the FreeBSD base system; git is
+          # only needed to fetch the kernel sources below.
           prepare: |
-            pkg install -y llvm
+            pkg install -y git
 
           run: |
             # Print FreeBSD version
             freebsd-version
             uname -a
 
-            # Verify kernel sources are available
+            # Verify kernel sources are available. The release src.txz is gone
+            # from download.freebsd.org once a release reaches EOL, so take
+            # sys/ from the matching releng branch in git instead.
             if [ ! -d /usr/src/sys ]; then
+              rel=$(freebsd-version -k | cut -d- -f1)
               echo "Kernel sources not found at /usr/src/sys"
-              echo "Installing kernel sources..."
-              fetch https://download.freebsd.org/ftp/releases/amd64/14.3-RELEASE/src.txz
-              tar -C / -xzf src.txz
+              echo "Fetching sys/ from releng/${rel}..."
+              rm -rf /usr/src
+              git clone --depth 1 --filter=blob:none --sparse \
+                -b "releng/${rel}" https://git.FreeBSD.org/src.git /usr/src &&
+                git -C /usr/src sparse-checkout set sys
+            fi
+            if [ ! -f /usr/src/sys/conf/kmod.mk ]; then
+              echo "ERROR: kernel sources are not available"
+              exit 1
             fi
 
             # Show compiler version
