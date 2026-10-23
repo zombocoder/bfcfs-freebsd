@@ -18,8 +18,10 @@ jobs:
         with:
           release: '14.3'
           usesh: true
+          # kyua is part of the FreeBSD base system (/usr/bin/kyua) and is
+          # no longer published as a package.
           prepare: |
-            pkg install -y llvm kyua
+            pkg install -y llvm
 
           run: |
             # Print FreeBSD version
